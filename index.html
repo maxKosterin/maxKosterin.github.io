@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0dd5 smarcontract specifications</title>
+    <link rel="icon" href="./favicon_0dd5.ico" type="image/x-icon" />
+    <style>
+      body { background-color: white; color: black; font-family: Verdana; }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 70%;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 1rem;
+      }
+      td, th {
+        border: 1px solid black;
+        border-collapse: separate;
+      }
+      .l {float: left;}
+    </style>
+  </head>
+  <body>
+    This document uses "GOV" for goverment tokens used for voting and profit redistribution (non ERC-20 compliant) and "BET" for utility tokens used for bets (ERC-20 compliant).<br>
+    TODO: maybe it is better if GOV are ERC-20 and BET are just for internal calculations?
+    
+    <h1 id="data_">Data structures</h1>
+    First block defines how to generate access address in memory, second block defines which data is available at that block, split by 32 byte words
+    <ul>
+      <li><a href="#data_address">Address ID</a></li>
+      <li><a href="#data_balances">Client balances</a></li>
+      <li><a href="#data_config">Configuration parameter</a></li>
+      <li><a href="#data_entity">Entity</a></li>
+      <li><a href="#data_tokenomics">Tokenomics</a></li>
+    </ul>
+    
+    
+    <fieldset id="data_config">
+      <legend title="Configurations can be changed">Configuration parameter</legend><i>Various parameters which determine smartcontract functionality</i><br>
+      <ul>
+        <li>uint8 :: <b>0x00</b> :: Configuration parameter unique identifier</li>
+        <li>uint16 :: <i>0x1234</i> :: One of known parameter ID (see <a href="#config_">table</a> below)</li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>UNUSED :: uint48 :: TODO think what to do</li>
+          <li>Delimiter :: int16 :: For float values delimiter, which is applied to every parameter value before calculations. 1000 in this field means that parameter 5 should be treated as 0.005, -1000 means that parameter 3 should be treated as 3000. never changes</li>
+          <li>Minimal possible value :: uint16 :: Minimal value to be set, never changes</li>
+          <li>Maximal possible value :: uint16 :: Maximal value to be set, never changes</li>
+          <li>Current value :: uint16 :: Current value, can be changed by voting</li>
+          <li>Voting date :: uint24 :: When last vote was cast, determines when change can be accepted. Stored as full hours passed from contract creation.</li>
+          <li>Decrease votes :: uint40 :: Amount of GOV tokens voting for decrease of parameter</li>
+          <li>Conservative votes :: uint40 :: Amount of GOV tokens voting for not changing parameters</li>
+          <li>Increase votes :: uint40 :: Amount of GOV tokens voting for increase of parameter</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+    
+    <fieldset id="data_address">
+      <legend title="As of now there is 210 millions of active addresses on Ethereum, so I guess 4 billions should be enough. By implementing internal Address ID we will be able to save 28 bytes on every bet record.">Address ID</legend><i>Stores id for user addresses, interacting with contract</i><br>
+      <ul>
+        <li>uint8 :: <b>0x01</b> :: Address ID structure unique identifier</li>
+        <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: Address which interacts with contract</li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>ID :: uint32 :: internal id of address</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+    
+    <fieldset id="data_balances">
+      <legend title="We store client balances here, both for BET and GOV tokens">Balances</legend><i>Stores client balances for tokens</i><br>
+      <ul>
+        <li>TODO: how to organize this in a better way?</li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>ID :: uint32 :: internal id of address</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+    
+    <fieldset id="data_entity">
+      <legend title="No need to tightly pack data, as entities are rarely created.">Entity</legend><i>Human readable entities for organizing events</i><br>
+      <ul>
+        <li>uint8 :: <b>0x02</b> :: Entity structure unique identifier</li>
+        <li>uint32 :: <i>0x12345678</i> :: Entity ID</li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>Owner :: <a href="#data_address">Address ID</a> :: Owner id, who created entity and owns comission for its usage :: 0x1234567890</li>
+          <li>Type :: uint8 :: Type of entity<ul>
+          <li><b>0x01</b> :: sport (root catalogue item)</li>
+          <li><b>0x02</b> :: country (second level catalogue item)</li>
+          <li><b>0x03</b> :: tournament (third level catalogue item)</li>
+          <li><b>0x04</b> :: team (one of match participants)</li>
+          </ul></li>
+          <li>Name Length :: uint8 :: Number of bytes used by "Name" field</li>
+          <li>Source Length :: uint8 :: Number of bytes used by "Source" field, zero if none</li>
+          <li>Source ID Length :: uint8 :: Number of bytes used by "Source ID" field, zero if none</li>
+        </ol></li>
+        <li>Depending on length of strings, this data can occupy several words, strings should be concatenated into one<ol>
+          <li>Name :: bytes256 :: utf-8 string representing entity name :: "Manchester United"</li>
+          <li>Source :: bytes256 :: optional utf-8 string representing source name which provided entity :: "wikipedia"</li>
+          <li>Source ID :: bytes256 :: optional utf-8 string representing source id at given entity :: "Manchester_United_F.C."</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+    
+    <fieldset id="data_tokenomics">
+      <legend title="">Tokenomics</legend><i>Data for manipulating with BET tokens: issuing, burning, calculating price</i><br>
+      <ul>
+        <li>const :: <b>0xb383a91dd7a6057ccfe8ef47dc812f7b9010318e237905ea6da7ef0001c89510</b> :: keccak-256 hash of word "tokenomics"</li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>TODO: describe tokenomics data: liquid, staked, unstaked, staked LP. I guess 48 bit values are enough</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+    
+    <h1 id="method_">Methods</h1>
+    First block are method parameters, passed on method call, second block describes step by step what method should do, mentioning structures it interact with.
+    <ul>
+      <li><a href="#method_vote">Cast vote for parameters change</a></li>
+      <li><a href="#method_mint">Mint tokens</a></li>
+      
+    </ul>
+  
+    <hr id="method_mint">
+    <h2>Mint tokens</h2>
+    <i>Takes native blockchain tokens, stores them in contract and adds BET ERC-20 tokens to sender</i><br>
+    <ol>
+      <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: optional, allows to credit tokens to different address</li>
+    </ol>
+    <ul>
+      <li>Method logic step 1 description</li>
+      <li>Method logic step 2 description</li>
+    </ul>
+    
+    <hr id="method_vote">
+    <h2>Vote</h2>
+    <i>Voting on params change allows to change any <a href="#config_">configuration parameter</a> in smartonctract</i><br>
+    <ol>
+      <li>uint16 :: <i>0x1234</i> :: One of <a href="#config_">configuration parameter</a> IDs</li>
+      <li>uint40 :: <i>0x1234567890</i> :: Amount of GOV tokens user want to cast for voting</li>
+      <li>uint8 :: <i>0x03</i> :: Vote ID, which person wants to cast<ul>
+        <li><b>0x01</b> :: increase parameter</li>
+        <li><b>0x02</b> :: decrease parameter</li>
+        <li><b>0x03</b> :: preserve parameter</li>
+      </ul></li>
+    </ol>
+    <ul>
+      <li>Retrieve <a href="#data_address">client ID</a></li>
+      <li>Retrieve <a href="#data_balances">client token balances</a></li>
+      <li>Method logic step 2 description</li>
+    </ul>
+    
+    <h1 id="config_">Configuration parameters</h1>
+    Each parameter, it's limits and votes for changing it is stored in separate word, see <a href="#data_config">here</a> for data format.
+    <table>
+      <thead><tr>
+        <th width="20%">Parameter ID / name</th><th width="10%">Delimiter</th><th width="10%">Min. value</th><th width="10%">Max. value</th><th width="10%">Start value</th><th width="30%">Description</th>
+      </tr></thead>
+      <tbody>
+        <tr id="config_0x00">
+          <th>0x00<br>change step</th>
+          <td>32768<br><i>0x8000</i></td>
+          <td>2%<br><i>0x290</i></td>
+          <td>25%<br><i>0x2000</i></td>
+          <td>10%<br><i>0xccc</i></td>
+          <td>Determines change step for configuration changes. 10% means that for parameter with minimal value 10 and maximal value 60 next succesfull increase vote will increase it by (60 - 10) * 0.1 = 5</td>
+        </tr>
+        <tr id="config_0x01">
+          <th>0x01<br>instant approve</th>
+          <td>32768<br><i>0x8000</i></td>
+          <td>25%<br><i>0x2000</i></td>
+          <td>75%<br><i>0x6000</i></td>
+          <td>50%<br><i>0x4000</i></td>
+          <td>When we have this or higher amount of votes for param change, we set time until acceptance to zero.</td>
+        </tr>
+        <tr id="config_0x02">
+          <th>0x02<br>half approve wait</th>
+          <td>64<br><i>0x40</i></td>
+          <td>20<br><i>0x500</i></td>
+          <td>512<br><i>0x8000</i></td>
+          <td>128<br><i>0x2000</i></td>
+          <td>When half of <a href="#config_0x01">instant approve</a> votes were cast, they have to wait this amount of hours until acceptance.</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h1 id="method_">Идеи</h1>
+    
+    <h2>Голосование за изменения</h2>
+    
+    <p>Пусть у нас есть некоторая цифра, допустим комиссия за снятие голоса с незавершенного голосования. Или комиссия за вступление в долю или любой вообще параметрю Формула 200 * (0.3 - x) / x, где 200 это параметр 0х02, 0.3 это параметр 0х01, а х это процент проголосовавших к общему количеству возможных голосов.</p>
+    
+    <h1 style="text-align:center;">Bets Onchained</h1>
+    
+  </body>
+</html>

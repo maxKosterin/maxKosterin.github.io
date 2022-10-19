@@ -23,14 +23,13 @@
     </style>
   </head>
   <body>
-    This document uses "GOV" for goverment tokens used for voting and profit redistribution (non ERC-20 compliant) and "BET" for utility tokens used for bets (ERC-20 compliant).<br>
-    TODO: maybe it is better if GOV are ERC-20 and BET are just for internal calculations?
+    This document uses "GOV" for goverment tokens used for voting and profit redistribution (ERC-20 compliant) and "BET" for internal tokens used for bets (non ERC-20 compliant).<br>
     
     <h1 id="data_">Data structures</h1>
     First block defines how to generate access address in memory, second block defines which data is available at that block, split by 32 byte words
     <ul>
       <li><a href="#data_address">Address ID</a></li>
-      <li><a href="#data_balances">Client balances</a></li>
+      <li><a href="#data_balllot">Client ballot</a></li>
       <li><a href="#data_config">Configuration parameter</a></li>
       <li><a href="#data_entity">Entity</a></li>
       <li><a href="#data_tokenomics">Tokenomics</a></li>
@@ -40,20 +39,19 @@
     <fieldset id="data_config">
       <legend title="Configurations can be changed">Configuration parameter</legend><i>Various parameters which determine smartcontract functionality</i><br>
       <ul>
-        <li>uint8 :: <b>0x00</b> :: Configuration parameter unique identifier</li>
+        <li>uint8 :: <b>0x00</b> :: Configuration structure unique identifier</li>
         <li>uint16 :: <i>0x1234</i> :: One of known parameter ID (see <a href="#config_">table</a> below)</li>
       </ul>
       <ol>
         <li><ol>
-          <li>UNUSED :: uint48 :: TODO think what to do</li>
           <li>Delimiter :: int16 :: For float values delimiter, which is applied to every parameter value before calculations. 1000 in this field means that parameter 5 should be treated as 0.005, -1000 means that parameter 3 should be treated as 3000. never changes</li>
           <li>Minimal possible value :: uint16 :: Minimal value to be set, never changes</li>
           <li>Maximal possible value :: uint16 :: Maximal value to be set, never changes</li>
           <li>Current value :: uint16 :: Current value, can be changed by voting</li>
           <li>Voting date :: uint24 :: When last vote was cast, determines when change can be accepted. Stored as full hours passed from contract creation.</li>
-          <li>Decrease votes :: uint40 :: Amount of GOV tokens voting for decrease of parameter</li>
-          <li>Conservative votes :: uint40 :: Amount of GOV tokens voting for not changing parameters</li>
-          <li>Increase votes :: uint40 :: Amount of GOV tokens voting for increase of parameter</li>
+          <li title="uint40 is probably enough">Decrease votes :: uint56 :: Amount of GOV tokens voting for decrease of parameter</li>
+          <li>Conservative votes :: uint56 :: Amount of GOV tokens voting for not changing parameters</li>
+          <li>Increase votes :: uint56 :: Amount of GOV tokens voting for increase of parameter</li>
         </ol></li>
       </ol>
     </fieldset>
@@ -71,18 +69,6 @@
       </ol>
     </fieldset>
     
-    <fieldset id="data_balances">
-      <legend title="We store client balances here, both for BET and GOV tokens">Balances</legend><i>Stores client balances for tokens</i><br>
-      <ul>
-        <li>TODO: how to organize this in a better way?</li>
-      </ul>
-      <ol>
-        <li><ol>
-          <li>ID :: uint32 :: internal id of address</li>
-        </ol></li>
-      </ol>
-    </fieldset>
-    
     <fieldset id="data_entity">
       <legend title="No need to tightly pack data, as entities are rarely created.">Entity</legend><i>Human readable entities for organizing events</i><br>
       <ul>
@@ -92,12 +78,7 @@
       <ol>
         <li><ol>
           <li>Owner :: <a href="#data_address">Address ID</a> :: Owner id, who created entity and owns comission for its usage :: 0x1234567890</li>
-          <li>Type :: uint8 :: Type of entity<ul>
-          <li><b>0x01</b> :: sport (root catalogue item)</li>
-          <li><b>0x02</b> :: country (second level catalogue item)</li>
-          <li><b>0x03</b> :: tournament (third level catalogue item)</li>
-          <li><b>0x04</b> :: team (one of match participants)</li>
-          </ul></li>
+          <li>Type :: uint8 :: <a href="#enum_catalogue">Catalogue position ID</a></li>
           <li>Name Length :: uint8 :: Number of bytes used by "Name" field</li>
           <li>Source Length :: uint8 :: Number of bytes used by "Source" field, zero if none</li>
           <li>Source ID Length :: uint8 :: Number of bytes used by "Source ID" field, zero if none</li>
@@ -110,6 +91,21 @@
       </ol>
     </fieldset>
     
+    <fieldset id="data_ballot">
+      <legend title="We store client balances here, both BET tokens. GOV tokens stored in ERC-20 compliant storage">Ballot</legend><i>Record GOV tokens spend for voting for changing configuration outcome</i><br>
+      <ul>
+        <li>uint8 :: <b>0x03</b> :: Ballot data structure unique identifier</li>
+        <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: Client address</li>
+        <li>uint16 :: <i>0x1234</i> :: ID of <a href="#config_">configuration parameter</a></li>
+        <li>uint8 :: <i>0x03</i> :: ID of <a href="#enum_vote">vote selection</a></li>
+      </ul>
+      <ol>
+        <li><ol>
+          <li>ID :: uint32 :: internal id of address</li>
+        </ol></li>
+      </ol>
+    </fieldset>
+
     <fieldset id="data_tokenomics">
       <legend title="">Tokenomics</legend><i>Data for manipulating with BET tokens: issuing, burning, calculating price</i><br>
       <ul>
@@ -127,12 +123,11 @@
     <ul>
       <li><a href="#method_vote">Cast vote for parameters change</a></li>
       <li><a href="#method_mint">Mint tokens</a></li>
-      
     </ul>
   
     <hr id="method_mint">
     <h2>Mint tokens</h2>
-    <i>Takes native blockchain tokens, stores them in contract and adds BET ERC-20 tokens to sender</i><br>
+    <i>Takes native blockchain tokens, stores them in contract and adds BET internal tokens to sender balance</i><br>
     <ol>
       <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: optional, allows to credit tokens to different address</li>
     </ol>
@@ -146,17 +141,21 @@
     <i>Voting on params change allows to change any <a href="#config_">configuration parameter</a> in smartonctract</i><br>
     <ol>
       <li>uint16 :: <i>0x1234</i> :: One of <a href="#config_">configuration parameter</a> IDs</li>
-      <li>uint40 :: <i>0x1234567890</i> :: Amount of GOV tokens user want to cast for voting</li>
-      <li>uint8 :: <i>0x03</i> :: Vote ID, which person wants to cast<ul>
-        <li><b>0x01</b> :: increase parameter</li>
-        <li><b>0x02</b> :: decrease parameter</li>
-        <li><b>0x03</b> :: preserve parameter</li>
-      </ul></li>
+      <li>uint256 :: <i>0x1234567890</i> :: Amount of GOV tokens user want to cast for voting</li>
+      <li>uint8 :: <i>0x03</i> :: <a href="#enum_vote">Vote ID</a>, which person wants to cast</li>
     </ol>
     <ul>
-      <li>Retrieve <a href="#data_address">client ID</a></li>
-      <li>Retrieve <a href="#data_balances">client token balances</a></li>
+      <li>Retrieve client GOV token balance via standart ERC-20 method</a></li>
+      <li>Check if client has enough GOV tokens to cast requested amount, revert if not</a></li>
+      <li>Transfer GOV tokens from client address to contract address via standart ERC-20 method</a></li>
+      <li>Load <a href="#data_ballot">ballot structure</a></li>
+      <li>If loaded structure is empty (non-existent) create vote structure for given client, configuration ID, vote ID and amount of tokens</a></li>
+      <li>If loaded structure is non-empty (client already cast a vote) update vote structure adding given amount of tokens</a></li>
+
+      
+      
       <li>Method logic step 2 description</li>
+      <li>Retrieve <a href="#data_address">client ID</a></li>      
     </ul>
     
     <h1 id="config_">Configuration parameters</h1>
@@ -192,6 +191,22 @@
         </tr>
       </tbody>
     </table>
+
+    <h1 id="enum_">ENUM collections</h1>
+    <h2 id="enum_vote">Vote ID</h2>
+    <ul>
+      <li><b>0x01</b> :: increase parameter</li>
+      <li><b>0x02</b> :: decrease parameter</li>
+      <li><b>0x03</b> :: preserve parameter</li>
+    </ul>
+
+    <h2 id="enum_catalogue">Catalogue position ID</h2>
+    <ul>
+      <li><b>0x01</b> :: sport (root catalogue item)</li>
+      <li><b>0x02</b> :: country (second level catalogue item)</li>
+      <li><b>0x03</b> :: tournament (third level catalogue item)</li>
+      <li><b>0x04</b> :: team (one of match participants)</li>
+    </ul>
     
     <h1 id="method_">Идеи</h1>
     

@@ -50,7 +50,7 @@
           <li>Current value :: uint16 :: Current value, can be changed by voting</li>
           <li>Voting date :: uint24 :: When last vote was cast, determines when change can be accepted. Stored as full hours passed from contract creation.</li>
           <li title="uint40 is probably enough">Decrease votes :: uint56 :: Amount of GOV tokens voting for decrease of parameter</li>
-          <li>Conservative votes :: uint56 :: Amount of GOV tokens voting for not changing parameters</li>
+          <li>Preserve votes :: uint56 :: Amount of GOV tokens voting for not changing parameters</li>
           <li>Increase votes :: uint56 :: Amount of GOV tokens voting for increase of parameter</li>
         </ol></li>
       </ol>
@@ -101,7 +101,7 @@
       </ul>
       <ol>
         <li><ol>
-          <li>ID :: uint32 :: internal id of address</li>
+          <li>Amount :: uint256 :: amount of GOV tokens cast for this vote on this parameter by this client</li>
         </ol></li>
       </ol>
     </fieldset>
@@ -119,9 +119,11 @@
     </fieldset>
     
     <h1 id="method_">Methods</h1>
-    First block are method parameters, passed on method call, second block describes step by step what method should do, mentioning structures it interact with.
+    First block are method parameters, passed on method call, second block describes step by step what method should do, mentioning structures it interact with.<br>
+    Methods marked with "!!!" are internal (can not be called from outside the contract)
     <ul>
       <li><a href="#method_vote">Cast vote for parameters change</a></li>
+      <li><a href="#method_!change">Change parameters if possible</a></li>
       <li><a href="#method_mint">Mint tokens</a></li>
     </ul>
   
@@ -148,14 +150,38 @@
       <li>Retrieve client GOV token balance via standart ERC-20 method</a></li>
       <li>Check if client has enough GOV tokens to cast requested amount, revert if not</a></li>
       <li>Transfer GOV tokens from client address to contract address via standart ERC-20 method</a></li>
-      <li>Load <a href="#data_ballot">ballot structure</a></li>
-      <li>If loaded structure is empty (non-existent) create vote structure for given client, configuration ID, vote ID and amount of tokens</a></li>
-      <li>If loaded structure is non-empty (client already cast a vote) update vote structure adding given amount of tokens</a></li>
+      <li>Load current amount of tokens cast from <a href="#data_ballot">ballot</a></li>
+      <li>Calculate new amount of cast tokens by adding them to recorded amount. Non-initialized ballots return 0.</a></li>
+      <li>Emit <a href="#event_vote">Vote event</a> with updated amount</li>
+      <li>Load <a href="#data_config">configuration parameter structure</a></li>
+      <li>Check if there will be no overflow after adding new votes to configuration structure, revert if yes</li>
+      <li>Add newly added votes to configuration structure.</li>
+      <li>Save configration structure to store</li>
+      <li>Call <a href="#method_change">configuration change</a> method for given configuration parameter</li>
+    </ul>
 
+    <hr id="method_change">
+    <h2>!!! Change parameters !!!</h2>
+    <i>Checks if voting on param change has finished and sets new param value. Called after every succesfull vote</i><br>
+    <ol>
+      <li>uint16 :: <i>0x1234</i> :: One of <a href="#config_">configuration parameter</a> IDs</li>
+    </ol>
+    <ul>
+      <li>TODO: describe how token update and calculation works</li>
       
-      
-      <li>Method logic step 2 description</li>
-      <li>Retrieve <a href="#data_address">client ID</a></li>      
+      below is old code
+      <li>Retrieve client GOV token balance via standart ERC-20 method</a></li>
+      <li>Check if client has enough GOV tokens to cast requested amount, revert if not</a></li>
+      <li>Transfer GOV tokens from client address to contract address via standart ERC-20 method</a></li>
+      <li>Load current amount of tokens cast from <a href="#data_ballot">ballot</a></li>
+      <li>Calculate new amount of cast tokens by adding them to recorded amount. Non-initialized ballots return 0.</a></li>
+      <li>Emit <a href="#event_vote">Vote event</a> with updated amount</li>
+      <li>Load <a href="#data_config">configuration parameter structure</a></li>
+      <li>Check if decrease votes are majority (decrease votes minus increase votes minus preserve votes is larger then zero)</li>
+      <li>Check if increase votes are majority (increase votes minus decrease votes minus preserve votes is larger then zero)</li>
+      <li>Add newly added votes to configuration structure.</li>
+      <li>Save configration structure to store</li>
+      <li>Call <a href="#method_!change">configuration change</a> method for given configuration parameter</li>
     </ul>
     
     <h1 id="config_">Configuration parameters</h1>
@@ -208,6 +234,36 @@
       <li><b>0x04</b> :: team (one of match participants)</li>
     </ul>
     
+    <h1 id="event_">Events</h1>
+    
+    <h2 id="event_vote">Updated ballot</h2>
+    <i>When recording this event to database make sure to check if it already exists and update in that case, as event is fired for every update with TOTAL amount cast on vote AFTER processing.</i>
+    <ol>
+      <li>string :: <b>vote</b> :: type of event</li>
+      <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: address of person who casted a vote</li>
+      <li>uint16 :: <i>0x1234</i> :: ID of <a href="#config_">configuration parameter</a> voted for</li>
+      <li>uint8 :: <i>0x03</i> :: <a href="#enum_vote">Vote ID</a>, which client chose</li>
+      <li>uint256 :: <i>0x1234567890</i> :: Amount of GOV tokens user currently have casted for this choice</li>
+    </ol>
+
+    <h1 id="report_">Reports</h1>
+    <i>First block is report params, second block is data which should be extracted from database and returned</i>
+    
+    <h2 id="report_vote">Voting report</h2>
+    For every configuration and optionally selection should return list of addresses with their votes (amounts of tokens) and time voted.
+    <ul>
+      <li>uint16 :: <i>0x1234</i> :: ID of <a href="#config_">configuration parameter</a></li>
+      <li>uint8 :: <i>0x03</i> :: ID of <a href="#enum_vote">vote selection</a></li>
+    </ul>
+
+    <ol>
+      <li>string :: <b>vote</b> :: type of report (might be API endpoint)</li>
+      <li>address :: <i>0xf9CD2CD1860F1366cAc5E33A16230195bA1E28E8</i> :: address of person who casted a vote</li>
+      <li>uint256 :: <i>0x1234567890</i> :: Amount of GOV tokens user casted for this choice</li>
+      <li>timestamp :: <i>1234567890</i> :: When this vote was last updated</li>
+    </ol>
+
+
     <h1 id="method_">Идеи</h1>
     
     <h2>Голосование за изменения</h2>
